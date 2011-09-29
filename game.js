@@ -6,13 +6,13 @@ function calcTop(x, y) {
   return (y + 1) * 32;
 }
 
-function makeCircle(x, y) {
+function makeCircle(color, x, y) {
   var c = new fabric.Circle({
     left: calcLeft(x, y),
     top: calcTop(x, y),
     strokeWidth: 3,
     radius: 12,
-    fill: '#fff',
+    fill: color,
     stroke: '#666'
   });
   c.hasControls = c.hasBorders = false;
@@ -30,69 +30,73 @@ function randomColor() {
   return "#000".replace(/0/g, function(){ return randomBelow(16).toString(16); });
 }
 
-// http://javascript.crockford.com/prototypal.html
-function object(o) {
-  function F() {}
-  F.prototype = o;
-  return new F();
-}
-
 (function() {
 
   var canvas = new fabric.Canvas('c');
   var width = 10, height = 12;
-  var field = _.map(_.range(height), function(y) { 
-    return _.map(_.range(width), function(x) {
-      var circle = makeCircle(x, y);
-      canvas.add(circle);
-      return circle;
+
+  _.each(_.range(height), function(y) { 
+    _.each(_.range(width), function(x) {
+      canvas.add(makeCircle("#fff", x, y));
     });
   });
 
-  var other = Object();
-  other.circle = makeCircle(0, 0);
-  other.circle.fill = '#fff';
-  canvas.add(other.circle);  
+  var Player = function(color) {
+    this.x = randomBelow(width);
+    this.y = randomBelow(height);
+    this.color = color;
+    this.circle = makeCircle(this.color, this.x, this.y);
+    canvas.add(this.circle);
 
-  var me = {
-    x: randomBelow(width),
-    y: randomBelow(height),
-    c: randomColor()
-  };
-  me.circle = makeCircle(me.x, me.y);
-  me.circle.fill = me.c;
-  canvas.add(me.circle);
-  canvas.renderAll();
+    this.move = function(direction) {
+      if (direction == 'Left') {
+        this.x = this.x == 0 ? width - 1 : this.x - 1;
+      } else if (direction == 'Right') {
+        this.x = this.x == width - 1 ? 0 : this.x + 1;
+      } else if (direction == 'Up') {
+        this.y = this.y == 0 ? height - 1 : this.y - 1;
+      } else if (direction == 'Down') {
+        this.y = this.y == height - 1 ? 0 : this.y + 1;
+      }
+      this.circle.left = calcLeft(this.x, this.y);
+      this.circle.top = calcTop(this.x, this.y);
+    }
+  }
+
+  var me = new Player(randomColor()); 
+   
+  var others = new Array();
+  var player = function(color) {
+    if (others[color] == undefined) {
+      others[color] = new Player(color);
+    }
+    return others[color];
+  }
 
   var socket = new WebSocket("ws://localhost:8088/");
   socket.onmessage = function(msg) {
     console.log(msg.data);
     var up = JSON.parse(msg.data);
-    other.circle.left = calcLeft(up.x, up.y);
-    other.circle.top = calcTop(up.x, up.y);
-    other.circle.fill = up.c;
+    other = player(up.color);
+    other.color = up.color;
+    other.x = up.x;
+    other.y = up.y;
+    other.move('there');
     canvas.renderAll();
   }
 
   key('left, right, up, down', function(event){
-    if (event.keyIdentifier == 'Left') {
-      me.x = me.x == 0 ? width - 1 : me.x - 1;
-    } else if (event.keyIdentifier == 'Right') {
-      me.x = me.x == width - 1 ? 0 : me.x + 1;
-    } else if (event.keyIdentifier == 'Up') {
-      me.y = me.y == 0 ? height - 1 : me.y - 1;
-    } else if (event.keyIdentifier == 'Down') {
-      me.y = me.y == height - 1 ? 0 : me.y + 1;
-    }
-    me.circle.left = calcLeft(me.x, me.y);
-    me.circle.top = calcTop(me.x, me.y);
+    me.move(event.keyIdentifier);
     canvas.renderAll();
     socket.send(JSON.stringify({ 
+      action: "move",
+      color: me.color,
       x: me.x, 
-      y: me.y,
-      c: me.c
+      y: me.y
     }));
   });
+
+  canvas.renderAll();
 
 })();
 

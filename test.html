@@ -8,6 +8,12 @@ function object(o) {
   return new F();
 }
 
+var Shape = function(sides, vertices) {
+  this.sides = sides; 
+  this.vertices = vertices; 
+}
+var triangle = new Shape(3, 3);
+
 (function() {
   console.log("hello");
 })();
