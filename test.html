@@ -1,0 +1,19 @@
+<html>
+<body>
+<script>
+
+function object(o) {
+  function F() {}
+  F.prototype = o;
+  return new F();
+}
+
+(function() {
+  console.log("hello");
+})();
+
+</script>
+</body>
+</html>
+
+
